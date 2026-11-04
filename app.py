@@ -84,7 +84,7 @@ COPY_FORM = r'''
 '''
 
 DETAIL = r'''
-<section class="heading"><div><div class="eyebrow">COURSE LIBRARY</div><h1>{{ course.name }}</h1><p>{{ course.category or '未分類' }}{% if course.start_date %}　·　{{ course.start_date }} 開課{% endif %}{% if course.audience %}　·　適合 {{ course.audience }}{% endif %}</p></div><a class="btn primary" href="{{ url_for('new_copy', course_id=course.id) }}">＋ 新增版本</a></section><div class="detailcard"><div class="detailhead"><div><h2>招生內容</h2><p>共 {{ copies|length }} 個版本，最近更新的內容會顯示在前面。</p></div><a class="btn" href="{{ url_for('edit_course', course_id=course.id) }}">✎ 編輯課程</a></div>{% if copies %}{% for copy in copies %}<article class="copy"><div class="copytop"><div><span class="tag">{{ copy.kind }}</span>　<h3 style="display:inline">{{ copy.title }}</h3></div><div class="actions"><a class="iconbtn" title="編輯版本" href="{{ url_for('edit_copy', copy_id=copy.id) }}">✎</a><form method="post" action="{{ url_for('delete_copy', copy_id=copy.id) }}" onsubmit="return confirm('確定刪除此文案版本？')"><button class="iconbtn" title="刪除版本">×</button></form></div></div><div class="copybody">{{ copy.body or '尚未填寫文案內容。' }}</div><div class="subtext" style="margin-top:8px">更新於 {{ copy.updated_at }}</div></article>{% endfor %}{% else %}<div class="empty"><b>這門課還沒有文案版本</b>新增招生文案、社群貼文或電子郵件版本。</div>{% endif %}</div><p style="margin-top:15px"><a class="muted" href="{{ url_for('index') }}">← 返回文案總覽</a></p>
+<section class="heading"><div><div class="eyebrow">COURSE LIBRARY</div><h1>{{ course.name }}</h1><p>{{ course.category or '未分類' }}{% if course.start_date %}　·　{{ course.start_date }} 開課{% endif %}{% if course.audience %}　·　適合 {{ course.audience }}{% endif %}</p></div><a class="btn primary" href="{{ url_for('new_copy', course_id=course.id) }}">＋ 新增版本</a></section><div class="detailcard"><div class="detailhead"><div><h2>招生內容</h2><p>共 {{ copies|length }} 個版本，最近更新的內容會顯示在前面。</p></div><div class="actions"><a class="btn" href="{{ url_for('edit_course', course_id=course.id) }}">✎ 編輯課程</a><form method="post" action="{{ url_for('delete_course', course_id=course.id) }}" onsubmit="return confirm('確定刪除此課程嗎？這會一併刪除這門課的 {{ copies|length }} 個文案版本，且無法復原。')"><button class="btn" type="submit" style="color:#a33;border-color:#e8caca">刪除課程</button></form></div></div>{% if copies %}{% for copy in copies %}<article class="copy"><div class="copytop"><div><span class="tag">{{ copy.kind }}</span>　<h3 style="display:inline">{{ copy.title }}</h3></div><div class="actions"><a class="iconbtn" title="編輯版本" href="{{ url_for('edit_copy', copy_id=copy.id) }}">✎</a><form method="post" action="{{ url_for('delete_copy', copy_id=copy.id) }}" onsubmit="return confirm('確定刪除此文案版本？')"><button class="iconbtn" title="刪除版本">×</button></form></div></div><div class="copybody">{{ copy.body or '尚未填寫文案內容。' }}</div><div class="subtext" style="margin-top:8px">更新於 {{ copy.updated_at }}</div></article>{% endfor %}{% else %}<div class="empty"><b>這門課還沒有文案版本</b>新增招生文案、社群貼文或電子郵件版本。</div>{% endif %}</div><p style="margin-top:15px"><a class="muted" href="{{ url_for('index') }}">← 返回文案總覽</a></p>
 '''
 
 @app.get("/")
@@ -141,6 +141,16 @@ def course_detail(course_id):
     copies = db().execute("SELECT * FROM copies WHERE course_id=? ORDER BY updated_at DESC,id DESC", (course_id,)).fetchall()
     return page("課程內容", DETAIL, course=course, copies=copies)
 
+@app.post("/courses/<int:course_id>/delete")
+def delete_course(course_id):
+    course = db().execute("SELECT name FROM courses WHERE id=?", (course_id,)).fetchone()
+    if not course:
+        abort(404)
+    db().execute("DELETE FROM courses WHERE id=?", (course_id,))
+    db().commit()
+    flash(f"課程「{course['name']}」及其文案版本已刪除。")
+    return redirect(url_for("index"))
+
 @app.route("/courses/<int:course_id>/copies/new", methods=["GET", "POST"])
 def new_copy(course_id):
     course = db().execute("SELECT * FROM courses WHERE id=?", (course_id,)).fetchone()
@@ -181,4 +191,4 @@ def delete_copy(copy_id):
     abort(404)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
+    app.run(host="127.0.0.1", port=int(os.environ.get("PORT", 5000)), debug=False)
