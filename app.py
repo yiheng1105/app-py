@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS courses (
  category TEXT NOT NULL DEFAULT '',
  audience TEXT NOT NULL DEFAULT '',
  start_date TEXT NOT NULL DEFAULT '',
+ deleted_at TEXT,
  created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS copies (
@@ -51,6 +52,9 @@ def initialize():
     conn = sqlite3.connect(DATABASE)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
+    course_columns = {row[1] for row in conn.execute("PRAGMA table_info(courses)")}
+    if "deleted_at" not in course_columns:
+        conn.execute("ALTER TABLE courses ADD COLUMN deleted_at TEXT")
     conn.commit()
     conn.close()
 
@@ -62,7 +66,7 @@ BASE = r'''
 <title>{{ title }}｜招生文案工作室</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--ink:#202b25;--muted:#77817a;--line:#e7e9e5;--paper:#fbfaf7;--green:#285d45;--pale:#eaf1e8;--orange:#dd8a5c;--shadow:0 12px 35px #2031270a}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:'DM Sans','Noto Sans TC',sans-serif;font-size:14px}a{color:inherit;text-decoration:none}button,input,textarea,select{font:inherit}.shell{display:grid;grid-template-columns:246px minmax(0,1fr);min-height:100vh}.sidebar{background:#f3f3ed;border-right:1px solid var(--line);padding:27px 17px;display:flex;flex-direction:column}.brand{display:flex;gap:11px;align-items:center;padding:2px 10px 34px}.brandmark{height:35px;width:35px;background:var(--green);border-radius:11px;color:white;display:grid;place-items:center;font-size:19px}.brand strong{display:block;font-size:14px;letter-spacing:.02em}.brand small{color:var(--muted);font-size:11px}.navlabel{font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:#9a9f98;padding:0 11px;margin:4px 0 9px}.nav{display:flex;align-items:center;gap:11px;padding:11px;border-radius:9px;color:#657068;margin:2px 0}.nav.active{background:#e5ece3;color:var(--green);font-weight:700}.navicon{width:19px;text-align:center;font-size:15px}.sidefoot{margin-top:auto;border-top:1px solid var(--line);padding:15px 10px 0;color:var(--muted);font-size:11px;line-height:1.7}.sidefoot b{color:var(--ink);display:block;font-size:12px}.main{padding:31px clamp(22px,5vw,68px) 52px;max-width:1440px;width:100%;margin:0 auto}.topline{display:flex;justify-content:space-between;align-items:center;margin-bottom:35px}.crumb{font-size:12px;color:var(--muted)}.crumb span{color:#bec3bd;margin:0 8px}.user{display:flex;gap:10px;align-items:center;font-size:12px}.avatar{width:30px;height:30px;border-radius:50%;background:#e8d2bd;color:#714d31;display:grid;place-items:center;font-weight:700}.heading{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:25px}.eyebrow{color:var(--green);font-size:11px;letter-spacing:.1em;font-weight:700;margin-bottom:9px}.heading h1{font-size:clamp(25px,3vw,34px);letter-spacing:-.04em;margin:0 0 8px}.heading p{margin:0;color:var(--muted);font-size:13px}.btn{border:1px solid var(--line);border-radius:8px;padding:10px 15px;background:white;cursor:pointer;color:var(--ink);display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:12px}.btn.primary{color:white;background:var(--green);border-color:var(--green)}.btn:hover{filter:brightness(.97)}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:25px}.stat{background:white;border:1px solid var(--line);border-radius:11px;padding:17px 19px;box-shadow:var(--shadow)}.statlabel{color:var(--muted);font-size:11px;display:flex;justify-content:space-between}.statval{font-size:26px;font-weight:700;margin-top:9px;letter-spacing:-.04em}.statnote{font-size:10px;color:#9ca49c;margin-top:3px}.statdot{width:7px;height:7px;background:#77a782;border-radius:50%;display:inline-block;margin-right:5px}.toolbar{display:flex;justify-content:space-between;gap:12px;margin:0 0 13px}.search{position:relative;flex:1;max-width:390px}.search input{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff;padding:10px 13px 10px 36px;outline:none}.search:before{content:'⌕';position:absolute;left:13px;top:7px;font-size:19px;color:#879089}.select{background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:#69736c}.tablewrap{background:white;border:1px solid var(--line);border-radius:11px;overflow:hidden;box-shadow:var(--shadow)}table{width:100%;border-collapse:collapse;text-align:left}th{font-size:10px;letter-spacing:.09em;color:#919992;font-weight:600;background:#fcfcfa;padding:13px 17px;border-bottom:1px solid var(--line)}td{padding:15px 17px;border-bottom:1px solid #eff0ed;vertical-align:middle}tr:last-child td{border:0}.coursename{font-weight:700;font-size:13px}.subtext{font-size:11px;color:var(--muted);margin-top:4px}.tag{display:inline-block;background:#eff3ed;color:#4d7457;border-radius:20px;padding:4px 9px;font-size:10px}.chips{display:flex;gap:5px;flex-wrap:wrap}.chip{border:1px solid var(--line);border-radius:5px;padding:4px 7px;color:#69736c;font-size:10px}.chip.missing{color:#a5aaa4;background:#fafaf8}.actions{display:flex;gap:6px;justify-content:flex-end}.iconbtn{border:1px solid var(--line);background:white;border-radius:6px;width:29px;height:29px;display:grid;place-items:center;color:#69736c;cursor:pointer}.empty{text-align:center;padding:50px 20px;color:var(--muted)}.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:6px}.flash{padding:11px 14px;border-radius:8px;background:#e8f1e7;color:#315f3e;margin-bottom:16px;font-size:12px}.formcard,.detailcard{border:1px solid var(--line);background:white;border-radius:11px;padding:23px;box-shadow:var(--shadow);max-width:820px}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.field{display:flex;flex-direction:column;gap:7px}.field.full{grid-column:1/-1}.field label{font-size:11px;font-weight:700;color:#626d65}.field input,.field textarea,.field select{border:1px solid var(--line);border-radius:7px;padding:10px 11px;background:#fff;outline-color:#8cab91}.field textarea{min-height:160px;resize:vertical;line-height:1.7}.field textarea.short{min-height:100px}.formactions{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);margin-top:20px;padding-top:17px}.muted{color:var(--muted);font-size:11px}.detailhead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding-bottom:19px;border-bottom:1px solid var(--line)}.detailhead h2{margin:0;font-size:21px}.detailhead p{color:var(--muted);font-size:12px;margin:7px 0}.copy{padding:19px 0;border-bottom:1px solid var(--line)}.copy:last-child{border-bottom:0;padding-bottom:0}.copytop{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.copytop h3{font-size:13px;margin:0}.copybody{white-space:pre-wrap;line-height:1.85;font-size:13px;color:#515d55;background:#fbfbf9;padding:15px;border-radius:7px}.notice{padding:13px;color:var(--muted);font-size:12px}@media(max-width:850px){.shell{grid-template-columns:1fr}.sidebar{display:none}.main{padding:22px 16px 38px}.stats{gap:8px}.stat{padding:13px}.tablewrap{overflow:auto}table{min-width:680px}}@media(max-width:540px){.heading{align-items:flex-start;flex-direction:column}.stats{grid-template-columns:1fr}.stat{display:flex;align-items:center;justify-content:space-between}.statval{margin:0}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}.topline{margin-bottom:24px}}
-</style></head><body><div class="shell"><aside class="sidebar"><a class="brand" href="{{ url_for('index') }}"><span class="brandmark">✳</span><span><strong>招生文案工作室</strong><small>ADMISSIONS STUDIO</small></span></a><div class="navlabel">工作空間</div><a class="nav active" href="{{ url_for('index') }}"><span class="navicon">▦</span>文案總覽</a><a class="nav" href="{{ url_for('index') }}#courses"><span class="navicon">◫</span>課程資料</a><div class="sidefoot"><b>讓每個好課程被看見</b>集中管理內容，讓招生溝通更有一致性。</div></aside><main class="main"><div class="topline"><div class="crumb">工作空間 <span>/</span> {{ title }}</div><div class="user"><span>招生企劃</span><span class="avatar">招</span></div></div>{% with messages = get_flashed_messages() %}{% if messages %}<div class="flash">{{ messages[0] }}</div>{% endif %}{% endwith %}{{ content|safe }}</main></div></body></html>
+</style></head><body><div class="shell"><aside class="sidebar"><a class="brand" href="{{ url_for('index') }}"><span class="brandmark">✳</span><span><strong>招生文案工作室</strong><small>ADMISSIONS STUDIO</small></span></a><div class="navlabel">工作空間</div><a class="nav {% if title=='文案總覽' %}active{% endif %}" href="{{ url_for('index') }}"><span class="navicon">▦</span>文案總覽</a><a class="nav" href="{{ url_for('index') }}#courses"><span class="navicon">◫</span>課程資料</a><a class="nav {% if title=='垃圾桶' %}active{% endif %}" href="{{ url_for('trash') }}"><span class="navicon">▤</span>垃圾桶</a><div class="sidefoot"><b>讓每個好課程被看見</b>集中管理內容，讓招生溝通更有一致性。</div></aside><main class="main"><div class="topline"><div class="crumb">工作空間 <span>/</span> {{ title }}</div><div class="user"><span>招生企劃</span><span class="avatar">招</span></div></div>{% with messages = get_flashed_messages() %}{% if messages %}<div class="flash">{{ messages[0] }}</div>{% endif %}{% endwith %}{{ content|safe }}</main></div></body></html>
 '''
 
 def page(title, content, **context):
@@ -84,14 +88,18 @@ COPY_FORM = r'''
 '''
 
 DETAIL = r'''
-<section class="heading"><div><div class="eyebrow">COURSE LIBRARY</div><h1>{{ course.name }}</h1><p>{{ course.category or '未分類' }}{% if course.start_date %}　·　{{ course.start_date }} 開課{% endif %}{% if course.audience %}　·　適合 {{ course.audience }}{% endif %}</p></div><a class="btn primary" href="{{ url_for('new_copy', course_id=course.id) }}">＋ 新增版本</a></section><div class="detailcard"><div class="detailhead"><div><h2>招生內容</h2><p>共 {{ copies|length }} 個版本，最近更新的內容會顯示在前面。</p></div><div class="actions"><a class="btn" href="{{ url_for('edit_course', course_id=course.id) }}">✎ 編輯課程</a><form method="post" action="{{ url_for('delete_course', course_id=course.id) }}" onsubmit="return confirm('確定刪除此課程嗎？這會一併刪除這門課的 {{ copies|length }} 個文案版本，且無法復原。')"><button class="btn" type="submit" style="color:#a33;border-color:#e8caca">刪除課程</button></form></div></div>{% if copies %}{% for copy in copies %}<article class="copy"><div class="copytop"><div><span class="tag">{{ copy.kind }}</span>　<h3 style="display:inline">{{ copy.title }}</h3></div><div class="actions"><a class="iconbtn" title="編輯版本" href="{{ url_for('edit_copy', copy_id=copy.id) }}">✎</a><form method="post" action="{{ url_for('delete_copy', copy_id=copy.id) }}" onsubmit="return confirm('確定刪除此文案版本？')"><button class="iconbtn" title="刪除版本">×</button></form></div></div><div class="copybody">{{ copy.body or '尚未填寫文案內容。' }}</div><div class="subtext" style="margin-top:8px">更新於 {{ copy.updated_at }}</div></article>{% endfor %}{% else %}<div class="empty"><b>這門課還沒有文案版本</b>新增招生文案、社群貼文或電子郵件版本。</div>{% endif %}</div><p style="margin-top:15px"><a class="muted" href="{{ url_for('index') }}">← 返回文案總覽</a></p>
+<section class="heading"><div><div class="eyebrow">COURSE LIBRARY</div><h1>{{ course.name }}</h1><p>{{ course.category or '未分類' }}{% if course.start_date %}　·　{{ course.start_date }} 開課{% endif %}{% if course.audience %}　·　適合 {{ course.audience }}{% endif %}</p></div><a class="btn primary" href="{{ url_for('new_copy', course_id=course.id) }}">＋ 新增版本</a></section><div class="detailcard"><div class="detailhead"><div><h2>招生內容</h2><p>共 {{ copies|length }} 個版本，最近更新的內容會顯示在前面。</p></div><div class="actions"><a class="btn" href="{{ url_for('edit_course', course_id=course.id) }}">✎ 編輯課程</a><form method="post" action="{{ url_for('delete_course', course_id=course.id) }}" onsubmit="return confirm('將此課程移到垃圾桶嗎？之後可以還原。')"><button class="btn" type="submit">移至垃圾桶</button></form></div></div>{% if copies %}{% for copy in copies %}<article class="copy"><div class="copytop"><div><span class="tag">{{ copy.kind }}</span>　<h3 style="display:inline">{{ copy.title }}</h3></div><div class="actions"><a class="iconbtn" title="編輯版本" href="{{ url_for('edit_copy', copy_id=copy.id) }}">✎</a><form method="post" action="{{ url_for('delete_copy', copy_id=copy.id) }}" onsubmit="return confirm('確定刪除此文案版本？')"><button class="iconbtn" title="刪除版本">×</button></form></div></div><div class="copybody">{{ copy.body or '尚未填寫文案內容。' }}</div><div class="subtext" style="margin-top:8px">更新於 {{ copy.updated_at }}</div></article>{% endfor %}{% else %}<div class="empty"><b>這門課還沒有文案版本</b>新增招生文案、社群貼文或電子郵件版本。</div>{% endif %}</div><p style="margin-top:15px"><a class="muted" href="{{ url_for('index') }}">← 返回文案總覽</a></p>
+'''
+
+TRASH = r'''
+<section class="heading"><div><div class="eyebrow">RECENTLY DELETED</div><h1>垃圾桶</h1><p>移到垃圾桶的課程可以還原；永久刪除後，課程與所有文案都無法復原。</p></div></section><div class="tablewrap">{% if courses %}<table><thead><tr><th>課程</th><th>類別</th><th>文案版本</th><th>移入時間</th><th style="text-align:right">操作</th></tr></thead><tbody>{% for c in courses %}<tr><td><span class="coursename">{{ c.name }}</span></td><td><span class="tag">{{ c.category or '未分類' }}</span></td><td>{{ c.copy_count }}</td><td>{{ c.deleted_at }}</td><td><div class="actions"><form method="post" action="{{ url_for('restore_course', course_id=c.id) }}"><button class="btn" type="submit">還原</button></form><form method="post" action="{{ url_for('purge_course', course_id=c.id) }}" onsubmit="return confirm('永久刪除這門課及全部文案？此操作無法復原。')"><button class="btn" type="submit" style="color:#a33;border-color:#e8caca">永久刪除</button></form></div></td></tr>{% endfor %}</tbody></table>{% else %}<div class="empty"><b>垃圾桶是空的</b>移到垃圾桶的課程會顯示在這裡。</div>{% endif %}</div><p style="margin-top:15px"><a class="muted" href="{{ url_for('index') }}">← 返回文案總覽</a></p>
 '''
 
 @app.get("/")
 def index():
     q = request.args.get("q", "").strip()
     kind = request.args.get("kind", "")
-    where, params = [], []
+    where, params = ["c.deleted_at IS NULL"], []
     if q:
         where.append("(c.name LIKE ? OR c.category LIKE ? OR c.audience LIKE ?)")
         params.extend([f"%{q}%"] * 3)
@@ -103,10 +111,15 @@ def index():
         sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY c.id DESC"
     courses = db().execute(sql, params).fetchall()
-    total = db().execute("SELECT COUNT(*) FROM courses").fetchone()[0]
-    copies = db().execute("SELECT COUNT(*) FROM copies").fetchone()[0]
+    total = db().execute("SELECT COUNT(*) FROM courses WHERE deleted_at IS NULL").fetchone()[0]
+    copies = db().execute("SELECT COUNT(*) FROM copies x JOIN courses c ON c.id=x.course_id WHERE c.deleted_at IS NULL").fetchone()[0]
     coverage = round(copies / (total * len(KINDS)) * 100) if total else 0
     return page("文案總覽", HOME, courses=courses, total=total, copies=copies, coverage=coverage, q=q, kind=kind, kinds=KINDS)
+
+@app.get("/trash")
+def trash():
+    courses = db().execute("SELECT c.*, (SELECT COUNT(*) FROM copies x WHERE x.course_id=c.id) AS copy_count FROM courses c WHERE c.deleted_at IS NOT NULL ORDER BY c.deleted_at DESC, c.id DESC").fetchall()
+    return page("垃圾桶", TRASH, courses=courses)
 
 @app.route("/courses/new", methods=["GET", "POST"])
 def new_course():
@@ -123,7 +136,7 @@ def new_course():
 
 @app.route("/courses/<int:course_id>/edit", methods=["GET", "POST"])
 def edit_course(course_id):
-    course = db().execute("SELECT * FROM courses WHERE id=?", (course_id,)).fetchone()
+    course = db().execute("SELECT * FROM courses WHERE id=? AND deleted_at IS NULL", (course_id,)).fetchone()
     if not course: abort(404)
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -136,24 +149,44 @@ def edit_course(course_id):
 
 @app.get("/courses/<int:course_id>")
 def course_detail(course_id):
-    course = db().execute("SELECT * FROM courses WHERE id=?", (course_id,)).fetchone()
+    course = db().execute("SELECT * FROM courses WHERE id=? AND deleted_at IS NULL", (course_id,)).fetchone()
     if not course: abort(404)
     copies = db().execute("SELECT * FROM copies WHERE course_id=? ORDER BY updated_at DESC,id DESC", (course_id,)).fetchall()
     return page("課程內容", DETAIL, course=course, copies=copies)
 
 @app.post("/courses/<int:course_id>/delete")
 def delete_course(course_id):
-    course = db().execute("SELECT name FROM courses WHERE id=?", (course_id,)).fetchone()
+    course = db().execute("SELECT name FROM courses WHERE id=? AND deleted_at IS NULL", (course_id,)).fetchone()
+    if not course:
+        abort(404)
+    db().execute("UPDATE courses SET deleted_at=? WHERE id=?", (datetime.now().strftime("%Y-%m-%d %H:%M"), course_id))
+    db().commit()
+    flash(f"課程「{course['name']}」已移至垃圾桶，可以還原。")
+    return redirect(url_for("index"))
+
+@app.post("/courses/<int:course_id>/restore")
+def restore_course(course_id):
+    course = db().execute("SELECT name FROM courses WHERE id=? AND deleted_at IS NOT NULL", (course_id,)).fetchone()
+    if not course:
+        abort(404)
+    db().execute("UPDATE courses SET deleted_at=NULL WHERE id=?", (course_id,))
+    db().commit()
+    flash(f"課程「{course['name']}」已還原。")
+    return redirect(url_for("trash"))
+
+@app.post("/courses/<int:course_id>/purge")
+def purge_course(course_id):
+    course = db().execute("SELECT name FROM courses WHERE id=? AND deleted_at IS NOT NULL", (course_id,)).fetchone()
     if not course:
         abort(404)
     db().execute("DELETE FROM courses WHERE id=?", (course_id,))
     db().commit()
-    flash(f"課程「{course['name']}」及其文案版本已刪除。")
-    return redirect(url_for("index"))
+    flash(f"課程「{course['name']}」及其文案已永久刪除。")
+    return redirect(url_for("trash"))
 
 @app.route("/courses/<int:course_id>/copies/new", methods=["GET", "POST"])
 def new_copy(course_id):
-    course = db().execute("SELECT * FROM courses WHERE id=?", (course_id,)).fetchone()
+    course = db().execute("SELECT * FROM courses WHERE id=? AND deleted_at IS NULL", (course_id,)).fetchone()
     if not course: abort(404)
     if request.method == "POST":
         title = request.form.get("title", "").strip()
@@ -170,7 +203,9 @@ def new_copy(course_id):
 def edit_copy(copy_id):
     copy = db().execute("SELECT * FROM copies WHERE id=?", (copy_id,)).fetchone()
     if not copy: abort(404)
-    course = db().execute("SELECT * FROM courses WHERE id=?", (copy["course_id"],)).fetchone()
+    course = db().execute("SELECT * FROM courses WHERE id=? AND deleted_at IS NULL", (copy["course_id"],)).fetchone()
+    if not course:
+        abort(404)
     if request.method == "POST":
         title, kind = request.form.get("title", "").strip(), request.form.get("kind", "")
         if not title or kind not in KINDS:
